@@ -1,24 +1,33 @@
-let requests = 0;
-let lastTime = Date.now();
+let requestCount = 0;
+let lastReset = Date.now();
+let currentRPS = 0;
 
 export default {
-  async fetch(request, env) {
-    const now = Date.now();
+  async fetch(request) {
+    const url = new URL(request.url);
 
-    // Hitung RPS
-    if (now - lastTime >= 1000) {
-      requests = 0;
-      lastTime = now;
+    if (url.pathname === "/hit") {
+      requestCount++;
+      return new Response("ok", {
+        headers: { "Access-Control-Allow-Origin": "*" }
+      });
     }
-    requests++;
 
-    const rps = requests;
-
-    return new Response(JSON.stringify({ rps }), {
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
+    if (url.pathname === "/stats") {
+      const now = Date.now();
+      if (now - lastReset >= 1000) {
+        currentRPS = requestCount;
+        requestCount = 0;
+        lastReset = now;
       }
-    });
+      return new Response(JSON.stringify({ rps: currentRPS }), {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+
+    return new Response("Not Found", { status: 404 });
   }
 };
