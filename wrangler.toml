@@ -1,5 +1,8 @@
-name = "worker"
-main = "src/script.js"
-compatibility_date = "2025-08-08"
+name = "worker" # Ganti dengan nama unik untuk proyek Worker Anda
+main = "src/index.js" # Path ke file Worker utama Anda
+compatibility_date = "2024-04-03" # Gunakan tanggal kompatibilitas terbaru
 
-[vars]
+[[durable_objects.bindings]]
+name = "COUNTER" # Nama binding yang akan diakses di 'env' Worker Anda (env.COUNTER)
+class_name = "Counter" # Nama kelas Durable Object yang Anda definisikan di src/Counter.js
+script_name = "worker" # Ini harus sama dengan 'name' proyek Worker utama Anda
