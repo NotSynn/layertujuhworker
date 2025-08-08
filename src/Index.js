@@ -1,17 +1,20 @@
-// src/index.js
+// src/index.js - Ini akan menjadi Worker yang menerima semua lalu lintas masuk
+
+// URL Pages.dev Anda yang sebenarnya
+const PAGES_DEV_URL = "https://l7.skyhosting.lol"; 
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Dapatkan instance Durable Object. Gunakan IDFromName untuk mendapatkan ID yang konsisten.
-    // "my-app-metrics" adalah nama unik untuk instance penghitung Anda.
+    // Dapatkan Durable Object Stub
     let id = env.COUNTER.idFromName("my-app-metrics");
     let stub = env.COUNTER.get(id);
 
-    // Perhatikan header CORS untuk Pages.dev Anda
+    // Header CORS (penting jika Anda mengakses /stats dari domain lain)
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "https://l7.skyhosting.lol", // Ganti dengan domain Pages.dev Anda
+      "Access-Control-Allow-Origin": "*", // Bisa jadi spesifik ke domain Pages.dev jika diperlukan
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     };
@@ -21,29 +24,48 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    let response;
+    // --- Logic Utama ---
 
     if (path === "/stats") {
-      // Panggil metode 'get' di Durable Object untuk mendapatkan metrik
-      response = await stub.fetch(new Request("http://dummy-host/get"));
+      // Jika permintaan ke /stats, ambil metrik dari Durable Object
+      const metricsResponse = await stub.fetch(new Request("http://dummy-host/get"));
+      const metricsBody = await metricsResponse.text();
+      const headers = new Headers(metricsResponse.headers);
+      
+      // Tambahkan header CORS
+      for (const [key, value] of Object.entries(corsHeaders)) {
+          headers.set(key, value);
+      }
+      return new Response(metricsBody, { status: metricsResponse.status, headers: headers });
+
     } else {
-      // Panggil metode 'increment' di Durable Object untuk mencatat hit
-      // Ini akan dipicu saat Pages.dev melakukan fetch(workerUrl)
-      response = await stub.fetch(new Request("http://dummy-host/increment"));
+      // Untuk semua permintaan lain (termasuk root, assets, dll.)
+      // 1. Catat sebagai hit di Durable Object
+      await stub.fetch(new Request("http://dummy-host/increment"));
+
+      // 2. Teruskan permintaan ke Pages.dev Anda
+      let newUrl = new URL(request.url);
+      newUrl.hostname = new URL(PAGES_DEV_URL).hostname;
+      newUrl.protocol = new URL(PAGES_DEV_URL).protocol;
+
+      // Buat permintaan baru untuk diteruskan
+      let newRequest = new Request(newUrl.toString(), request);
+      // Hapus header Host agar tidak terjadi error routing di Pages.dev
+      newRequest.headers.set("Host", new URL(PAGES_DEV_URL).hostname); 
+
+      // Lakukan fetch ke Pages.dev dan kembalikan responsnya
+      const pagesResponse = await fetch(newRequest);
+
+      // Anda mungkin ingin menyalin beberapa header dari respons Pages.dev
+      // Misalnya, Content-Type
+      const responseHeaders = new Headers(pagesResponse.headers);
+      // Jika Anda tidak ingin Pages.dev menampilkan sesuatu yang spesifik, Anda bisa memodifikasi respons di sini
+
+      return new Response(pagesResponse.body, {
+          status: pagesResponse.status,
+          statusText: pagesResponse.statusText,
+          headers: responseHeaders,
+      });
     }
-
-    // Ambil body dan headers dari respons Durable Object
-    const responseBody = await response.text();
-    const responseHeaders = new Headers(response.headers);
-
-    // Tambahkan header CORS ke respons Worker sebelum mengirimkannya kembali ke Pages.dev
-    for (const [key, value] of Object.entries(corsHeaders)) {
-        responseHeaders.set(key, value);
-    }
-
-    return new Response(responseBody, {
-        status: response.status,
-        headers: responseHeaders,
-    });
   }
 };
