@@ -1,23 +1,24 @@
-let requestCount = 0;
-let lastCheck = Date.now();
-let currentRPS = 0;
+let requests = 0;
+let lastTime = Date.now();
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const now = Date.now();
 
-    // Hitung request
-    requestCount++;
-
-    // Reset setiap 1 detik
-    if (now - lastCheck >= 1000) {
-      currentRPS = requestCount;
-      requestCount = 0;
-      lastCheck = now;
+    // Hitung RPS
+    if (now - lastTime >= 1000) {
+      requests = 0;
+      lastTime = now;
     }
+    requests++;
 
-    return new Response(JSON.stringify({ rps: currentRPS }), {
-      headers: { "Content-Type": "application/json" }
+    const rps = requests;
+
+    return new Response(JSON.stringify({ rps }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      }
     });
   }
 };
