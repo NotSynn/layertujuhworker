@@ -1,0 +1,5 @@
+name = "worker"
+main = "src/script.js"
+compatibility_date = "2025-08-08"
+
+[vars]
