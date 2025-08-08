@@ -1,33 +1,37 @@
-let requestCount = 0;
-let lastReset = Date.now();
-let currentRPS = 0;
+let hits = 0;
+let lastSecond = Math.floor(Date.now() / 1000);
+let rps = 0;
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
+    const path = url.pathname;
 
-    if (url.pathname === "/hit") {
-      requestCount++;
-      return new Response("ok", {
-        headers: { "Access-Control-Allow-Origin": "*" }
-      });
+    // Tambah hit setiap request ke domain Pages
+    if (path !== "/stats") {
+      hits++;
     }
 
-    if (url.pathname === "/stats") {
-      const now = Date.now();
-      if (now - lastReset >= 1000) {
-        currentRPS = requestCount;
-        requestCount = 0;
-        lastReset = now;
-      }
-      return new Response(JSON.stringify({ rps: currentRPS }), {
+    const currentSecond = Math.floor(Date.now() / 1000);
+    if (currentSecond !== lastSecond) {
+      rps = hits;
+      hits = 0;
+      lastSecond = currentSecond;
+    }
+
+    if (path === "/stats") {
+      return new Response(JSON.stringify({ rps }), {
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
+          "Access-Control-Allow-Origin": "*", // CORS
+        },
       });
     }
 
-    return new Response("Not Found", { status: 404 });
+    return new Response("OK", {
+      headers: {
+        "Access-Control-Allow-Origin": "*", // CORS
+      },
+    });
   }
 };
